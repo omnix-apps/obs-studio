@@ -22,15 +22,32 @@
 #include <util/dstr.h>
 #include <util/platform.h>
 
-const char *core_module_bin = "../" OBS_PLUGIN_PATH "/%module%";
-const char *core_module_data = "../" OBS_DATA_PATH "/obs-modules/core/%module%";
+const char *core_module_bin = OBS_PLUGIN_PATH "/%module%";
+const char *core_module_data = OBS_DATA_PATH "/obs-modules/core/%module%";
+
+/* OBS_PLUGIN_PATH and OBS_DATA_PATH come from CMAKE_INSTALL_LIBDIR and
+ * CMAKE_INSTALL_DATAROOTDIR, which are relative in a default build but absolute
+ * when a distribution passes absolute install dirs (Nix does). Resolve relative
+ * paths against the executable as before, and use absolute ones as they are. */
+static char *core_module_path(const char *path)
+{
+	if (path[0] == '/')
+		return bstrdup(path);
+
+	struct dstr relative;
+	dstr_init_copy(&relative, "../");
+	dstr_cat(&relative, path);
+	char *resolved = os_get_executable_path_ptr(relative.array);
+	dstr_free(&relative);
+	return resolved;
+}
 
 extern bool find_core_module(struct obs_runtime_module_info *info, obs_find_module_callback2_t callback, void *data);
 
 void load_core_modules(obs_find_module_callback2_t callback, void *data)
 {
-	char *core_bin_path = os_get_executable_path_ptr(core_module_bin);
-	char *core_data_path = os_get_executable_path_ptr(core_module_data);
+	char *core_bin_path = core_module_path(core_module_bin);
+	char *core_data_path = core_module_path(core_module_data);
 
 	for (unsigned int i = 0; i < obs_core_modules_count; i++) {
 		const char *name = obs_core_modules[i];
